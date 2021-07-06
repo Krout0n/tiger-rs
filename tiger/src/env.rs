@@ -27,13 +27,8 @@ use types::Type;
 
 #[derive(Clone)]
 pub enum Entry {
-    Fun {
-        parameters: Vec<Type>,
-        result: Type,
-    },
-    Var {
-        typ: Type,
-    },
+    Fun { parameters: Vec<Type>, result: Type },
+    Var { typ: Type },
     Error,
 }
 
@@ -51,10 +46,7 @@ impl Env {
         type_env.enter(string_symbol, Type::String);
 
         let var_env = Symbols::new(Rc::clone(strings));
-        let mut env = Self {
-            type_env,
-            var_env,
-        };
+        let mut env = Self { type_env, var_env };
 
         for (name, (param_types, return_type)) in external_functions() {
             env.add_function(name, param_types, return_type);
@@ -65,10 +57,7 @@ impl Env {
 
     fn add_function(&mut self, name: &str, parameters: Vec<Type>, result: Type) {
         let symbol = self.var_env.symbol(name);
-        let entry = Entry::Fun {
-            parameters,
-            result,
-        };
+        let entry = Entry::Fun { parameters, result };
         self.var_env.enter(symbol, entry);
     }
 
@@ -120,7 +109,10 @@ pub fn external_functions() -> HashMap<&'static str, (Vec<Type>, Type)> {
     functions.insert("ord", (vec![Type::String], Type::Int));
     functions.insert("chr", (vec![Type::Int], Type::String));
     functions.insert("size", (vec![Type::String], Type::Int));
-    functions.insert("substring", (vec![Type::String, Type::Int, Type::Int], Type::String));
+    functions.insert(
+        "substring",
+        (vec![Type::String, Type::Int, Type::Int], Type::String),
+    );
     functions.insert("concat", (vec![Type::String, Type::String], Type::String));
     functions.insert("not", (vec![Type::Int], Type::Int));
     functions.insert("exit", (vec![Type::Int], Type::Unit));

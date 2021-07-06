@@ -21,27 +21,15 @@
 
 use std::collections::HashSet;
 
+use self::AddError::*;
 use ast::{
-    Declaration,
-    DeclarationWithPos,
-    Expr,
-    ExprWithPos,
-    FieldWithPos,
-    FuncDeclaration,
-    Operator,
-    RecordFieldWithPos,
-    Ty,
-    TypeDec,
-    TypeDecWithPos,
-    TyWithPos,
-    Var,
-    VarWithPos,
+    Declaration, DeclarationWithPos, Expr, ExprWithPos, FieldWithPos, FuncDeclaration, Operator,
+    RecordFieldWithPos, Ty, TyWithPos, TypeDec, TypeDecWithPos, Var, VarWithPos,
 };
-use env::{Env, Entry};
+use env::{Entry, Env};
 use error::{Error, Result};
 use ir::Exp;
 use position::{Pos, WithPos};
-use self::AddError::*;
 use symbol::{Symbol, SymbolWithPos};
 use types::{Type, Unique};
 
@@ -57,11 +45,10 @@ pub struct ExpTy {
     pub ty: Type,
 }
 
-const EXP_TYPE_ERROR: ExpTy =
-    ExpTy {
-        exp: (),
-        ty: Type::Error,
-    };
+const EXP_TYPE_ERROR: ExpTy = ExpTy {
+    exp: (),
+    ty: Type::Error,
+};
 
 pub struct SemanticAnalyzer<'a> {
     env: &'a mut Env,
@@ -87,8 +74,7 @@ impl<'a> SemanticAnalyzer<'a> {
         let exp = self.trans_exp(&expr);
         if self.errors.is_empty() {
             Ok(exp)
-        }
-        else {
+        } else {
             Err(Error::Multi(self.errors))
         }
     }
@@ -102,21 +88,23 @@ impl<'a> SemanticAnalyzer<'a> {
     }
 
     fn actual_ty_var(&mut self, typ: &Type) -> Type {
-        let typ =
-            match *typ {
-                Type::Name(_, Some(ref typ)) => *typ.clone(),
-                Type::Name(ref symbol, None) =>
-                    match self.get_var(symbol) {
-                        Entry::Var { ref typ, .. } => typ.clone(),
-                        _ => panic!("type should be a variable, not a function"),
-                    },
-                ref typ => typ.clone(),
-            };
+        let typ = match *typ {
+            Type::Name(_, Some(ref typ)) => *typ.clone(),
+            Type::Name(ref symbol, None) => match self.get_var(symbol) {
+                Entry::Var { ref typ, .. } => typ.clone(),
+                _ => panic!("type should be a variable, not a function"),
+            },
+            ref typ => typ.clone(),
+        };
         typ
     }
 
-    fn check_binary_op(&mut self, _oper: Operator, left: &ExprWithPos, right: &ExprWithPos) -> ExpTy
-    {
+    fn check_binary_op(
+        &mut self,
+        _oper: Operator,
+        left: &ExprWithPos,
+        right: &ExprWithPos,
+    ) -> ExpTy {
         let left_pos = left.pos;
         let left = self.trans_exp(left);
         self.check_int(&left, left_pos);
@@ -135,9 +123,12 @@ impl<'a> SemanticAnalyzer<'a> {
             names.insert(typ.node.name.node);
             if let Ty::Name { ref ident } = typ.node.ty.node {
                 if names.contains(&ident.node) {
-                    return self.add_error(Error::Cycle {
-                        pos: typ.node.ty.pos,
-                    }, ());
+                    return self.add_error(
+                        Error::Cycle {
+                            pos: typ.node.ty.pos,
+                        },
+                        (),
+                    );
                 }
             }
         }
@@ -145,11 +136,14 @@ impl<'a> SemanticAnalyzer<'a> {
 
     fn check_int(&mut self, expr: &ExpTy, pos: Pos) {
         if expr.ty != Type::Int && expr.ty != Type::Error {
-            return self.add_error(Error::Type {
-                expected: Type::Int,
-                pos,
-                unexpected: expr.ty.clone(),
-            }, ());
+            return self.add_error(
+                Error::Type {
+                    expected: Type::Int,
+                    pos,
+                    unexpected: expr.ty.clone(),
+                },
+                (),
+            );
         }
     }
 
@@ -162,11 +156,14 @@ impl<'a> SemanticAnalyzer<'a> {
                     return;
                 }
             }
-            return self.add_error(Error::Type {
-                expected: expected.clone(),
-                pos,
-                unexpected: unexpected.clone(),
-            }, ());
+            return self.add_error(
+                Error::Type {
+                    expected: expected.clone(),
+                    pos,
+                    unexpected: unexpected.clone(),
+                },
+                (),
+            );
         }
     }
 
@@ -176,8 +173,7 @@ impl<'a> SemanticAnalyzer<'a> {
         }
         if add == AddError {
             self.undefined_type(symbol)
-        }
-        else {
+        } else {
             Type::Error
         }
     }
@@ -192,14 +188,22 @@ impl<'a> SemanticAnalyzer<'a> {
     fn trans_dec(&mut self, declaration: &DeclarationWithPos) {
         match declaration.node {
             Declaration::Function(ref declarations) => {
-                for &WithPos { node: FuncDeclaration { name, ref params, ref result, .. }, .. } in declarations {
-                    let result_type =
-                        if let Some(ref result) = *result {
-                            self.get_type(result, AddError)
-                        }
-                        else {
-                            Type::Unit
-                        };
+                for &WithPos {
+                    node:
+                        FuncDeclaration {
+                            name,
+                            ref params,
+                            ref result,
+                            ..
+                        },
+                    ..
+                } in declarations
+                {
+                    let result_type = if let Some(ref result) = *result {
+                        self.get_type(result, AddError)
+                    } else {
+                        Type::Unit
+                    };
                     // TODO: error when name already exist?
                     let mut param_names = vec![];
                     let mut parameters = vec![];
@@ -211,20 +215,31 @@ impl<'a> SemanticAnalyzer<'a> {
                             self.duplicate_param(param);
                         }
                     }
-                    self.env.enter_var(name, Entry::Fun {
-                        parameters,
-                        result: result_type.clone(),
-                    });
+                    self.env.enter_var(
+                        name,
+                        Entry::Fun {
+                            parameters,
+                            result: result_type.clone(),
+                        },
+                    );
                 }
 
-                for &WithPos { node: FuncDeclaration { ref params, ref body, ref result, .. }, .. } in declarations {
-                    let result_type =
-                        if let Some(ref result) = *result {
-                            self.get_type(result, DontAddError)
-                        }
-                        else {
-                            Type::Unit
-                        };
+                for &WithPos {
+                    node:
+                        FuncDeclaration {
+                            ref params,
+                            ref body,
+                            ref result,
+                            ..
+                        },
+                    ..
+                } in declarations
+                {
+                    let result_type = if let Some(ref result) = *result {
+                        self.get_type(result, DontAddError)
+                    } else {
+                        Type::Unit
+                    };
                     let mut param_names = vec![];
                     let mut parameters = vec![];
                     for param in params {
@@ -239,53 +254,76 @@ impl<'a> SemanticAnalyzer<'a> {
                     self.check_types(&result_type, &exp.ty, body.pos);
                     self.env.end_scope();
                 }
-            },
+            }
             Declaration::Type(ref type_declarations) => {
                 self.check_duplicate_types(type_declarations);
-                for &WithPos { node: TypeDec { ref name, .. }, .. } in type_declarations {
-                    self.env.enter_type(name.node, Type::Name(name.clone(), None));
+                for &WithPos {
+                    node: TypeDec { ref name, .. },
+                    ..
+                } in type_declarations
+                {
+                    self.env
+                        .enter_type(name.node, Type::Name(name.clone(), None));
                 }
 
-                for &WithPos { node: TypeDec { ref name, ref ty }, .. } in type_declarations {
+                for &WithPos {
+                    node: TypeDec { ref name, ref ty },
+                    ..
+                } in type_declarations
+                {
                     let new_type = self.trans_ty(name.node, ty);
                     self.env.replace_type(name.node, new_type);
                 }
-            },
-            Declaration::VariableDeclaration { ref init, name, ref typ, .. } => {
+            }
+            Declaration::VariableDeclaration {
+                ref init,
+                name,
+                ref typ,
+                ..
+            } => {
                 let exp = self.trans_exp(init);
                 if let Some(ref ident) = *typ {
                     let typ = self.get_type(ident, AddError);
                     self.check_types(&typ, &exp.ty, ident.pos);
                 } else if exp.ty == Type::Nil {
-                    return self.add_error(Error::RecordType { pos: declaration.pos }, ());
+                    return self.add_error(
+                        Error::RecordType {
+                            pos: declaration.pos,
+                        },
+                        (),
+                    );
                 }
                 self.env.enter_var(name, Entry::Var { typ: exp.ty });
-            },
+            }
         }
     }
 
     pub fn trans_exp(&mut self, expr: &ExprWithPos) -> ExpTy {
         match expr.node {
-            Expr::Array { ref init, ref size, ref typ } => {
+            Expr::Array {
+                ref init,
+                ref size,
+                ref typ,
+            } => {
                 let size_expr = self.trans_exp(size);
                 self.check_int(&size_expr, size.pos);
                 let ty = self.get_type(typ, AddError);
                 let init_expr = self.trans_exp(init);
                 match ty {
-                    Type::Array(ref typ, _) =>
-                        self.check_types(typ, &init_expr.ty, init.pos),
+                    Type::Array(ref typ, _) => self.check_types(typ, &init_expr.ty, init.pos),
                     Type::Error => (),
-                    _ =>
-                        return self.add_error(Error::UnexpectedType {
-                            kind: "array".to_string(),
-                            pos: typ.pos,
-                        }, EXP_TYPE_ERROR),
+                    _ => {
+                        return self.add_error(
+                            Error::UnexpectedType {
+                                kind: "array".to_string(),
+                                pos: typ.pos,
+                            },
+                            EXP_TYPE_ERROR,
+                        )
+                    }
                 }
-                ExpTy {
-                    exp: (),
-                    ty,
-                }
-            },
+                ExpTy { exp: (), ty }
+            }
             Expr::Assign { ref expr, ref var } => {
                 let var = self.trans_var(var);
                 let expr_expr = self.trans_exp(expr);
@@ -294,22 +332,25 @@ impl<'a> SemanticAnalyzer<'a> {
                     exp: (),
                     ty: Type::Unit,
                 }
-            },
+            }
             Expr::Break => {
                 if !self.in_loop {
-                    return self.add_error(Error::BreakOutsideLoop {
-                        pos: expr.pos,
-                    }, EXP_TYPE_ERROR);
+                    return self
+                        .add_error(Error::BreakOutsideLoop { pos: expr.pos }, EXP_TYPE_ERROR);
                 }
                 ExpTy {
                     exp: (),
                     ty: Type::Unit,
                 }
-            },
+            }
             Expr::Call { ref args, function } => {
-                if let Some(entry@Entry::Fun { .. }) = self.env.look_var(function).cloned() { // TODO: remove this clone.
+                if let Some(entry @ Entry::Fun { .. }) = self.env.look_var(function).cloned() {
+                    // TODO: remove this clone.
                     return match entry {
-                        Entry::Fun { ref parameters, ref result } => {
+                        Entry::Fun {
+                            ref parameters,
+                            ref result,
+                        } => {
                             let mut expr_args = vec![];
                             for (arg, param) in args.iter().zip(parameters) {
                                 let exp = self.trans_exp(arg);
@@ -320,39 +361,41 @@ impl<'a> SemanticAnalyzer<'a> {
                                 exp: (),
                                 ty: self.actual_ty_var(result),
                             }
-                        },
+                        }
                         _ => unreachable!(),
                     };
                 }
                 return self.undefined_function(function, expr.pos);
-            },
-            Expr::If { ref else_, ref test, ref then } => {
+            }
+            Expr::If {
+                ref else_,
+                ref test,
+                ref then,
+            } => {
                 let test_expr = self.trans_exp(test);
                 self.check_int(&test_expr, then.pos);
                 let if_expr = self.trans_exp(then);
-                let ty =
-                    match *else_ {
-                        Some(ref else_) => {
-                            let else_expr = self.trans_exp(&else_);
-                            self.check_types(&if_expr.ty, &else_expr.ty, else_.pos);
-                            if_expr.ty
-                        },
-                        None => {
-                            self.check_types(&Type::Unit, &if_expr.ty, then.pos);
-                            Type::Unit
-                        },
-                    };
-                ExpTy {
-                    exp: (),
-                    ty,
-                }
+                let ty = match *else_ {
+                    Some(ref else_) => {
+                        let else_expr = self.trans_exp(&else_);
+                        self.check_types(&if_expr.ty, &else_expr.ty, else_.pos);
+                        if_expr.ty
+                    }
+                    None => {
+                        self.check_types(&Type::Unit, &if_expr.ty, then.pos);
+                        Type::Unit
+                    }
+                };
+                ExpTy { exp: (), ty }
+            }
+            Expr::Int { .. } => ExpTy {
+                exp: (),
+                ty: Type::Int,
             },
-            Expr::Int { .. } =>
-                ExpTy {
-                    exp: (),
-                    ty: Type::Int,
-                },
-            Expr::Let { ref body, ref declarations } => {
+            Expr::Let {
+                ref body,
+                ref declarations,
+            } => {
                 let old_in_loop = self.in_loop;
                 self.in_loop = false;
                 self.env.begin_scope();
@@ -366,25 +409,111 @@ impl<'a> SemanticAnalyzer<'a> {
                     exp: (),
                     ty: result.ty,
                 }
+            }
+            Expr::Nil => ExpTy {
+                exp: (),
+                ty: Type::Nil,
             },
-            Expr::Nil =>
-                ExpTy {
-                    exp: (),
-                    ty: Type::Nil,
+            Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: oper @ Operator::Plus,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: oper @ Operator::Minus,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: oper @ Operator::Times,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: oper @ Operator::And,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: oper @ Operator::Or,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: oper @ Operator::Divide,
+                        ..
+                    },
+                ref right,
+            } => self.check_binary_op(oper, left, right),
+            Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: Operator::Equal,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper:
+                    WithPos {
+                        node: Operator::Neq,
+                        ..
+                    },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper: WithPos {
+                    node: Operator::Lt, ..
                 },
-            Expr::Oper { ref left, oper: WithPos { node: oper@Operator::Plus, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: oper@Operator::Minus, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: oper@Operator::Times, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: oper@Operator::And, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: oper@Operator::Or, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: oper@Operator::Divide, .. }, ref right } =>
-                self.check_binary_op(oper, left, right),
-            Expr::Oper { ref left, oper: WithPos { node: Operator::Equal, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: Operator::Neq, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: Operator::Lt, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: Operator::Gt, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: Operator::Ge, .. }, ref right }
-            | Expr::Oper { ref left, oper: WithPos { node: Operator::Le, .. }, ref right } => {
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper: WithPos {
+                    node: Operator::Gt, ..
+                },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper: WithPos {
+                    node: Operator::Ge, ..
+                },
+                ref right,
+            }
+            | Expr::Oper {
+                ref left,
+                oper: WithPos {
+                    node: Operator::Le, ..
+                },
+                ref right,
+            } => {
                 let left = self.trans_exp(left);
                 let right_pos = right.pos;
                 let right = self.trans_exp(right);
@@ -393,8 +522,11 @@ impl<'a> SemanticAnalyzer<'a> {
                     exp: (),
                     ty: Type::Int,
                 }
-            },
-            Expr::Record { ref fields, ref typ } => {
+            }
+            Expr::Record {
+                ref fields,
+                ref typ,
+            } => {
                 let ty = self.get_type(typ, AddError);
                 let mut field_exprs = vec![];
                 match ty {
@@ -405,7 +537,11 @@ impl<'a> SemanticAnalyzer<'a> {
                                 if type_field_name == field.node.ident {
                                     found = true;
                                     let field_expr = self.trans_exp(&field.node.expr);
-                                    self.check_types(&type_field, &field_expr.ty, field.node.expr.pos);
+                                    self.check_types(
+                                        &type_field,
+                                        &field_expr.ty,
+                                        field.node.expr.pos,
+                                    );
                                     field_exprs.push(field_expr.exp);
                                 }
                             }
@@ -415,41 +551,41 @@ impl<'a> SemanticAnalyzer<'a> {
                         }
 
                         for field in fields {
-                            let found = type_fields.iter()
+                            let found = type_fields
+                                .iter()
                                 .any(|&(type_field_name, _)| field.node.ident == type_field_name);
                             if !found {
                                 return self.extra_field(field, typ);
                             }
                         }
-                    },
+                    }
                     Type::Error => (),
-                    _ =>
-                        return self.add_error(Error::UnexpectedType {
-                            kind: "record".to_string(),
-                            pos: typ.pos,
-                        }, EXP_TYPE_ERROR),
+                    _ => {
+                        return self.add_error(
+                            Error::UnexpectedType {
+                                kind: "record".to_string(),
+                                pos: typ.pos,
+                            },
+                            EXP_TYPE_ERROR,
+                        )
+                    }
                 }
-                ExpTy {
-                    exp: (),
-                    ty,
-                }
-            },
+                ExpTy { exp: (), ty }
+            }
             Expr::Sequence(ref exprs) => {
                 if let Some((last_expr, exprs)) = exprs.split_last() {
                     for expr in exprs {
                         self.trans_exp(expr);
                     }
                     self.trans_exp(last_expr)
-                }
-                else {
+                } else {
                     panic!("Unexpected empty sequence.");
                 }
+            }
+            Expr::Str { .. } => ExpTy {
+                exp: (),
+                ty: Type::String,
             },
-            Expr::Str { .. } =>
-                ExpTy {
-                    exp: (),
-                    ty: Type::String,
-                },
             Expr::Variable(ref var) => self.trans_var(var),
             Expr::While { ref body, ref test } => {
                 let test_expr = self.trans_exp(test);
@@ -462,7 +598,7 @@ impl<'a> SemanticAnalyzer<'a> {
                     exp: (),
                     ty: result.ty,
                 }
-            },
+            }
         }
     }
 
@@ -471,7 +607,7 @@ impl<'a> SemanticAnalyzer<'a> {
             Ty::Array { ref ident } => {
                 let ty = self.get_type(ident, AddError);
                 Type::Array(Box::new(ty), Unique::new())
-            },
+            }
             Ty::Name { ref ident } => self.get_type(ident, AddError),
             Ty::Record { ref fields } => {
                 let mut record_fields = vec![];
@@ -480,13 +616,16 @@ impl<'a> SemanticAnalyzer<'a> {
                     record_fields.push((field.node.name, typ));
                 }
                 Type::Record(symbol, record_fields, Unique::new())
-            },
+            }
         }
     }
 
     fn trans_var(&mut self, var: &VarWithPos) -> ExpTy {
         match var.node {
-            Var::Field { ref ident, ref this } => {
+            Var::Field {
+                ref ident,
+                ref this,
+            } => {
                 let var = self.trans_var(this);
                 match var.ty {
                     Type::Record(record_type, ref fields, _) => {
@@ -499,23 +638,22 @@ impl<'a> SemanticAnalyzer<'a> {
                             }
                         }
                         self.unexpected_field(ident, ident.pos, record_type)
-                    },
-                    typ =>
-                        return self.add_error(Error::NotARecord {
-                            pos: this.pos,
-                            typ,
-                        }, EXP_TYPE_ERROR),
+                    }
+                    typ => {
+                        return self
+                            .add_error(Error::NotARecord { pos: this.pos, typ }, EXP_TYPE_ERROR)
+                    }
                 }
-            },
+            }
             Var::Simple { ref ident } => {
-                if let Some(Entry::Var { ref typ, }) = self.env.look_var(ident.node).cloned() {
+                if let Some(Entry::Var { ref typ }) = self.env.look_var(ident.node).cloned() {
                     return ExpTy {
                         exp: (),
                         ty: self.actual_ty_var(typ),
                     };
                 }
                 self.undefined_variable(ident.node, var.pos)
-            },
+            }
             Var::Subscript { ref expr, ref this } => {
                 let var = self.trans_var(this);
                 let subscript_expr = self.trans_exp(expr);
@@ -529,87 +667,109 @@ impl<'a> SemanticAnalyzer<'a> {
                         exp: (),
                         ty: Type::Error,
                     },
-                    typ =>
-                        self.add_error(Error::CannotIndex {
-                            pos: this.pos,
-                            typ,
-                        }, EXP_TYPE_ERROR),
+                    typ => {
+                        self.add_error(Error::CannotIndex { pos: this.pos, typ }, EXP_TYPE_ERROR)
+                    }
                 }
-            },
+            }
         }
     }
 
     fn duplicate_param(&mut self, param: &FieldWithPos) {
         let ident = self.env.var_name(param.node.name).to_string();
-        self.add_error(Error::DuplicateParam {
-            ident,
-            pos: param.pos,
-        }, ())
+        self.add_error(
+            Error::DuplicateParam {
+                ident,
+                pos: param.pos,
+            },
+            (),
+        )
     }
 
     fn extra_field(&mut self, field: &RecordFieldWithPos, typ: &SymbolWithPos) -> ExpTy {
         let ident = self.env.type_name(field.node.ident);
         let struct_name = self.env.type_name(typ.node);
-        self.add_error(Error::ExtraField {
-            ident,
-            pos: field.pos,
-            struct_name,
-        }, EXP_TYPE_ERROR)
+        self.add_error(
+            Error::ExtraField {
+                ident,
+                pos: field.pos,
+                struct_name,
+            },
+            EXP_TYPE_ERROR,
+        )
     }
 
     fn missing_field(&mut self, field_type: Symbol, typ: &SymbolWithPos) -> ExpTy {
         let ident = self.env.type_name(field_type);
         let struct_name = self.env.type_name(typ.node);
-        self.add_error(Error::MissingField {
-            ident,
-            pos: typ.pos,
-            struct_name,
-        }, EXP_TYPE_ERROR)
+        self.add_error(
+            Error::MissingField {
+                ident,
+                pos: typ.pos,
+                struct_name,
+            },
+            EXP_TYPE_ERROR,
+        )
     }
 
     fn undefined_function(&mut self, ident: Symbol, pos: Pos) -> ExpTy {
         let ident = self.env.var_name(ident).to_string();
-        self.add_error(Error::Undefined {
-            ident,
-            item: "function".to_string(),
-            pos,
-        }, EXP_TYPE_ERROR)
+        self.add_error(
+            Error::Undefined {
+                ident,
+                item: "function".to_string(),
+                pos,
+            },
+            EXP_TYPE_ERROR,
+        )
     }
 
     fn undefined_identifier(&mut self, symbol: &SymbolWithPos) -> Entry {
         let ident = self.env.type_name(symbol.node);
-        self.add_error(Error::Undefined {
-            ident,
-            item: "identifier".to_string(),
-            pos: symbol.pos,
-        }, Entry::Error)
+        self.add_error(
+            Error::Undefined {
+                ident,
+                item: "identifier".to_string(),
+                pos: symbol.pos,
+            },
+            Entry::Error,
+        )
     }
 
     fn undefined_type(&mut self, symbol: &SymbolWithPos) -> Type {
         let ident = self.env.type_name(symbol.node);
-        self.add_error(Error::Undefined {
-            ident,
-            item: "type".to_string(),
-            pos: symbol.pos,
-        }, Type::Error)
+        self.add_error(
+            Error::Undefined {
+                ident,
+                item: "type".to_string(),
+                pos: symbol.pos,
+            },
+            Type::Error,
+        )
     }
 
     fn undefined_variable(&mut self, ident: Symbol, pos: Pos) -> ExpTy {
         let ident = self.env.var_name(ident).to_string();
-        self.add_error(Error::Undefined {
-            ident,
-            item: "variable".to_string(),
-            pos,
-        }, EXP_TYPE_ERROR)
+        self.add_error(
+            Error::Undefined {
+                ident,
+                item: "variable".to_string(),
+                pos,
+            },
+            EXP_TYPE_ERROR,
+        )
     }
 
     fn unexpected_field(&mut self, ident: &SymbolWithPos, pos: Pos, typ: Symbol) -> ExpTy {
         let ident = self.env.type_name(ident.node);
         let struct_name = self.env.type_name(typ);
-        self.add_error(Error::UnexpectedField {
-            ident,
-            pos,
-            struct_name,
-        }, EXP_TYPE_ERROR)
+        self.add_error(
+            Error::UnexpectedField {
+                ident,
+                pos,
+                struct_name,
+            },
+            EXP_TYPE_ERROR,
+        )
     }
 }

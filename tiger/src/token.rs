@@ -21,8 +21,8 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use position::Pos;
 use self::Tok::*;
+use position::Pos;
 
 #[derive(Clone, Debug)]
 pub enum Tok {
