@@ -40,9 +40,9 @@ use std::rc::Rc;
 use env::Env;
 use error::Error;
 use lexer::Lexer;
-use symbol::{Strings, Symbols};
 use parser::Parser;
 use semant::SemanticAnalyzer;
+use symbol::{Strings, Symbols};
 use terminal::Terminal;
 
 fn main() {
